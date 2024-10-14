@@ -40,8 +40,8 @@ async function main(data) {
 
   else if( (/cd\s\w+/).test(data) ) {
     const newDir = await isExist(data.slice(3))
-    const isFolder = !isExtname(newDir)
-    if(isFolder){
+    const isFolder = !isExtname(data.slice(3))
+    if(isFolder && newDir){
       chdir(newDir)
       input.write(`\nYou are currently in directory ${displayCurrentDir()}\n`)
     }
@@ -50,8 +50,9 @@ async function main(data) {
 
   else if((/cat\s\w+/).test(data) ) {
     const newDir = await isExist(data.slice(4))
-    const isFile = isExtname(newDir)
-    if(isFile){
+    const isFile = isExtname(data.slice(4))
+
+    if(isFile && newDir){
       let readableStream = createReadStream(newDir, 'utf8');
       readableStream.on('data', chunk => {
         console.log(chunk)

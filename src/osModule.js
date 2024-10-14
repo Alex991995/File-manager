@@ -11,6 +11,9 @@ export function osFunction(command) {
   else if(command === 'homedir'){
     return homedir()
   }
+  else if(command === 'username'){
+    return userInfo()
+  }
   else if(command === 'architecture'){
     return arch
   }
