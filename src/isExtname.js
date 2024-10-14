@@ -1,7 +1,7 @@
 import { extname } from 'path';
 
-function isExtname(f) {
-  if(extname(f)) return true
+function isExtname(file) {
+  if(extname(file)) return true
   else return false
 }
 

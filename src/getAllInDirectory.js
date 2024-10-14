@@ -12,9 +12,9 @@ async function getAllInDirectory() {
 
   const res = allFolders.concat(allFiles)
 
-  const sortDir = res.map( (file ) => ({
-    name: file,
-    type: isExtname(file) ? 'file' : 'directory'
+  const sortDir = res.map( (item ) => ({
+    name: item,
+    type: isExtname(item) ? 'file' : 'directory'
   }))
 
   return sortDir;

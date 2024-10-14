@@ -3,15 +3,18 @@ import {
   stdout as output, 
   argv , chdir } from 'node:process';
 import * as readline from 'node:readline/promises';
-
+import { createReadStream, createWriteStream } from 'node:fs';
+import { writeFile, rename, unlink } from 'node:fs/promises';
+import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 
 import displayCurrentDir from './displayCurrentDir.js';
 import getAllInDirectory from './getAllInDirectory.js';
 import isExist from './isExist.js';
-import { createReadStream, createWriteStream } from 'node:fs';
-import { writeFile, rename, copyFile, constants } from 'node:fs/promises';
 import isExtname from './isExtname.js';
-import { join } from 'node:path';
+import { osFunction } from './osModule.js';
+import { compressFunction } from './compressFunction.js';
+import { decompressFunction } from './decompressFunction.js';
 
 
 const rl = readline.createInterface({ input, output });
@@ -45,14 +48,13 @@ async function main(data) {
     else input.write('\nOperation failed\n')
   }
 
-  // Read file and print it's content in console 
   else if((/cat\s\w+/).test(data) ) {
     const newDir = await isExist(data.slice(4))
     const isFile = isExtname(newDir)
     if(isFile){
-      console.log(isFile)
       let readableStream = createReadStream(newDir, 'utf8');
       readableStream.on('data', chunk => {
+        console.log(chunk)
         input.write(`\nYou are currently in directory ${displayCurrentDir()}\n`)
       })
     }
@@ -62,9 +64,9 @@ async function main(data) {
   }
   else if( (/add\s\w+/).test(data) ){
     const currentDir = join(displayCurrentDir(), data.slice(4))
-    const content = 'some text'
     try{
-      await writeFile(currentDir, content, {flag: 'ax'})
+      await writeFile(currentDir, '', {flag: 'ax'})
+      input.write(`\nYou are currently in directory ${displayCurrentDir()}\n`)
     }
     catch{
       input.write('\nOperation failed\n')
@@ -77,7 +79,7 @@ async function main(data) {
     try {
       await isExist(pathToOldFile)
       await rename(pathToOldFile, pathToNewFile)
-
+      input.write(`\nYou are currently in directory ${displayCurrentDir()}\n`)
     } catch {
       input.write('\nOperation failed\n')
     }
@@ -86,22 +88,109 @@ async function main(data) {
     const [ pref, srcFile, destFile ] = data.split(' ')
     
     const pathSrcFile = join(displayCurrentDir(), srcFile)
-    const pathDestFile = join(displayCurrentDir(), destFile)
+    const pathDestFile = join(displayCurrentDir(), destFile, srcFile)
+    const readableStream = createReadStream(pathSrcFile);
 
-    const readableStream = createReadStream(pathSrcFile, 'utf-8')
-    const writeableStream = createWriteStream(destFile);
-   
-    if( await isExist(pathSrcFile) && !(await isExist(pathDestFile)) ){
-      readableStream.pipe(writeableStream)
-    } 
-    else {
-      input.write('\nOperation failed\n')
-    }
+      readableStream.on("data", data => {
+          if(pathSrcFile && pathDestFile){
+            let writeableStream = createWriteStream(pathDestFile);
+            writeableStream.on('error', err => console.log('Invalid input'))
+            writeableStream.write(data)
+          }
+          input.write(`\nYou are currently in directory ${displayCurrentDir()}\n`)
+      })
+      readableStream.on("error", err => console.log('Invalid input'))
   }
 
+  else if(data.startsWith('mv')) {
+    const [ pref, srcFile, destFile ] = data.split(' ')
+    
+    const pathSrcFile = join(displayCurrentDir(), srcFile)
+    const pathDestFile = join(displayCurrentDir(), destFile, srcFile)
+    const readableStream = createReadStream(pathSrcFile);
 
+      readableStream.on("data", async data => {
+          if(pathSrcFile && pathDestFile){
+            let writeableStream = createWriteStream(pathDestFile);
+            writeableStream.on('error', err => console.log('Invalid input'))
+            writeableStream.write(data)
+          }
+          await unlink(pathSrcFile)
+          input.write(`\nYou are currently in directory ${displayCurrentDir()}\n`)
+      })
+      readableStream.on("error", err => console.log('Invalid input'))
+  }
 
-  else input.write('\nOperation failed\n')
+  else if(data.startsWith('rm')) {
+    const [ pref, pathFile ] = data.split(' ')
+      try {
+        await unlink(pathFile)
+        input.write(`\nYou are currently in directory ${displayCurrentDir()}\n`)
+      } catch (error) {
+        input.write('\nInvalid input\n')
+      }
+  }
+  else if(data.startsWith('os')) {
+    const [ pref, command ]  = data.split('--')
+    const res = osFunction(command)
+    if(!res) {
+      input.write('\nInvalid input\n')
+    }
+    else{
+      console.log(res)
+      input.write(`\nYou are currently in directory ${displayCurrentDir()}\n`)
+    }
+    
+  }
+
+  else if(data.startsWith('hash')) {
+    const [ pref, file ]  = data.split(' ')
+
+    const pathSrcFile = join(displayCurrentDir(), file)
+    const readableStream = createReadStream(pathSrcFile);
+    const hash = createHash('sha256');
+
+    readableStream.on('data', data => {
+        hash.update(data);
+        console.log(`${hash.digest('base64')}`);
+        input.write(`\nYou are currently in directory ${displayCurrentDir()}\n`)
+    })
+    readableStream.on("error", () => input.write('\nInvalid input\n'))
+
+  }
+
+  else if(data.startsWith('compress')) {
+    const [ pref, srcFile, destFile ] = data.split(' ')
+
+    if(await isExist(srcFile) && await isExist(destFile) ) {
+      const pathSrcFile = join(displayCurrentDir(), srcFile)
+      const pathDestFile = join(displayCurrentDir(), destFile, srcFile)
+      compressFunction(pathSrcFile, pathDestFile)
+      input.write(`\nYou are currently in directory ${displayCurrentDir()}\n`)
+    }
+    else input.write('\nInvalid input\n')
+    
+  }
+
+  else if(data.startsWith('decompress')) {
+    const [ pref, srcFile, destFile ] = data.split(' ')
+
+    if(await isExist(srcFile) && await isExist(destFile) ) {
+      const pathSrcFile = join(displayCurrentDir(), srcFile)
+      const pathDestFile = join(displayCurrentDir(), destFile, srcFile)
+      decompressFunction(pathSrcFile, pathDestFile)
+      input.write(`\nYou are currently in directory ${displayCurrentDir()}\n`)
+    }
+    else input.write('\nInvalid input\n')
+    
+  }
+
+  else if(data.startsWith('.exit')) {
+    console.log(`\nThank you for using File Manager, ${userName} goodbye!`)
+    rl.close()
+  }
+
+  else input.write('\nInvalid input\n')
 }
 
 rl.on('line', main)
